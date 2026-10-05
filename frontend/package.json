@@ -12,6 +12,6 @@
     "react": "latest",
     "react-dom": "latest",
     "@stellar/stellar-sdk": "^13.0.0",
-    "@stellar/stellar-wallet-kit": "^1.0.0"
+    "@creit.tech/stellar-wallets-kit": "^1.2.0"
   }
 }
