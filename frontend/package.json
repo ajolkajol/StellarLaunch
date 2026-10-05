@@ -12,6 +12,6 @@
     "react": "latest",
     "react-dom": "latest",
     "@stellar/stellar-sdk": "^13.0.0",
-    "@stellar/freighter-api": "latest"
+    "@stellar/stellar-wallet-kit": "^1.0.0"
   }
 }
