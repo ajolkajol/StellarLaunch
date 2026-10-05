@@ -4,37 +4,44 @@ export default function Home() {
   const [walletAddress, setWalletAddress] = useState(null);
   const [walletName, setWalletName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [kit, setKit] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [walletKit, setWalletKit] = useState(null);
+  const [availableWallets, setAvailableWallets] = useState([]);
 
-  // Inisialisasi kit persis standar komponen Stellar Lab
   useEffect(() => {
-    import("@creit.tech/stellar-wallets-kit").then((StellarKit) => {
-      const { StellarWalletsKit, WalletNetwork, FREIGHTER_ID, XBULL_ID, ALBEDO_ID } = StellarKit;
+    // Memuat secara dinamis agar aman dari kompilasi SSR Vercel
+    import("@creit.tech/stellar-wallets-kit").then((module) => {
+      const { WalletKit, WalletNetwork, AllWallets } = module;
       
-      const instance = new StellarWalletsKit({
+      // Inisialisasi menggunakan class WalletKit versi terbaru (2.5.0)
+      const kitInstance = new WalletKit({
         network: WalletNetwork.TESTNET,
-        wallets: [FREIGHTER_ID, XBULL_ID, ALBEDO_ID]
+        wallets: AllWallets // Mengaktifkan semua daftar dompet yang didukung ekosistem
       });
       
-      setKit(instance);
-    }).catch(err => console.error("Gagal load Stellar Kit Module", err));
+      setWalletKit(kitInstance);
+      setAvailableWallets(AllWallets);
+    }).catch(err => console.error("Gagal memuat modul kit:", err));
   }, []);
 
   async function connectWallet(walletId) {
-    if (!kit) return;
+    if (!walletKit) return;
     setLoading(true);
     setModalOpen(false);
     try {
-      // Tembak koneksi internal API dompet sesuai pilihan modal
-      const connection = await kit.connect(walletId);
-      if (connection && connection.address) {
-        setWalletAddress(connection.address);
+      // 1. Pilih target ID dompet menggunakan fungsi bawaan versi 2.5.0
+      walletKit.setWallet(walletId);
+      
+      // 2. Ambil kunci publik alamat akun user
+      const publicKey = await walletKit.getPublicKey();
+      
+      if (publicKey) {
+        setWalletAddress(publicKey);
         setWalletName(walletId);
       }
     } catch (error) {
-      console.error("User menolak atau koneksi drop:", error);
-      alert("Gagal Terhubung: Pastikan dompet tidak sedang membuka tab settings.");
+      console.error("Koneksi gagal atau ditolak:", error);
+      alert("Gagal Terhubung: Pastikan dompet Anda tidak sedang membuka tab settings.");
     }
     setLoading(false);
   }
@@ -42,13 +49,13 @@ export default function Home() {
   return (
     <div style={{ padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#0c0f12', color: '#ecefe7', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
-      {/* AREA HEADER IDENTIK LAB */}
+      {/* HEADER TAMPILAN STELLAR LAB */}
       <div style={{ borderBottom: '1px solid #1c232b', width: '100%', maxWidth: '800px', paddingBottom: '20px', marginBottom: '30px', textAlign: 'left' }}>
-        <h2 style={{ margin: 0, color: '#3fe88b', fontSize: '1.8rem' }}>StellarLaunch — Laboratory Setup</h2>
-        <p style={{ margin: '5px 0 0 0', color: '#7a8c9e', fontSize: '0.95rem' }}>Bypass validation tool via custom injection module</p>
+        <h2 style={{ margin: 0, color: '#3fe88b', fontSize: '1.8rem' }}>StellarLaunch — Laboratory v2.5 Setup</h2>
+        <p style={{ margin: '5px 0 0 0', color: '#7a8c9e', fontSize: '0.95rem' }}>Bypass validation tool sync with official repository package</p>
       </div>
 
-      {/* BOX UTAMA KONEKSI */}
+      {/* INDIKATOR KONEKSI */}
       <div style={{ backgroundColor: '#131920', border: '1px solid #1c232b', borderRadius: '8px', padding: '30px', width: '100%', maxWidth: '500px', textAlign: 'center' }}>
         {walletAddress ? (
           <div style={{ textAlign: 'left' }}>
@@ -69,13 +76,13 @@ export default function Home() {
               disabled={loading}
               style={{ width: '100%', padding: '14px', backgroundColor: '#3fe88b', color: '#0c0f12', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '15px', letterSpacing: '0.5px' }}
             >
-              {loading ? "PROCESSING CAPTURE..." : "CONNECT WALLET"}
+              {loading ? "CONNECTING..." : "CONNECT WALLET KIT"}
             </button>
           </div>
         )}
       </div>
 
-      {/* POPUP MODAL DIJAMIN MUNCUL 100% PERSIS STELLAR LAB */}
+      {/* POPUP MODAL PILIHAN DOMPET */}
       {modalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: '#131920', border: '1px solid #2e3947', borderRadius: '8px', width: '360px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
@@ -84,20 +91,17 @@ export default function Home() {
               <span onClick={() => setModalOpen(false)} style={{ cursor: 'pointer', color: '#7a8c9e', fontSize: '18px', fontWeight: 'bold' }}>&times;</span>
             </div>
             
-            {/* Opsi Dompet */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button onClick={() => connectWallet("freighter")} style={{ width: '100%', padding: '12px', textAlign: 'left', backgroundColor: '#1c232b', color: '#ecefe7', border: '1px solid #2e3947', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                <span>🛸 Freighter Wallet</span>
-                <span style={{ color: '#3fe88b', fontSize: '10px' }}>EXTENSION</span>
-              </button>
-
-              <button onClick={() => connectWallet("xbull")} style={{ width: '100%', padding: '12px', textAlign: 'left', backgroundColor: '#1c232b', color: '#ecefe7', border: '1px solid #2e3947', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                🐂 xBull Wallet
-              </button>
-
-              <button onClick={() => connectWallet("albedo")} style={{ width: '100%', padding: '12px', textAlign: 'left', backgroundColor: '#1c232b', color: '#ecefe7', border: '1px solid #2e3947', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                🌌 Albedo Wallet (Web)
-              </button>
+              {availableWallets.map((wallet) => (
+                <button 
+                  key={wallet.id}
+                  onClick={() => connectWallet(wallet.id)} 
+                  style={{ width: '100%', padding: '12px', textAlign: 'left', backgroundColor: '#1c232b', color: '#ecefe7', border: '1px solid #2e3947', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}
+                >
+                  <span>{wallet.name}</span>
+                  <span style={{ color: '#3fe88b', fontSize: '10px' }}>READY</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
