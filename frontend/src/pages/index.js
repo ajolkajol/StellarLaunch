@@ -1,36 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [freighterSDK, setFreighterSDK] = useState(null);
-
-  // Mencegah kode dijalankan di server Vercel. 
-  // SDK dompet baru dimuat setelah halaman menyentuh browser user.
-  useEffect(() => {
-    import("@stellar/freighter-api").then((sdk) => {
-      setFreighterSDK(sdk);
-    });
-  }, []);
 
   async function handleConnect() {
-    if (!freighterSDK) {
-      alert("Sistem modul sedang bersiap, silakan coba sesaat lagi.");
-      return;
-    }
-
     setLoading(true);
     try {
-      // 1. Cek instalasi ekstensi Freighter
-      const connected = await freighterSDK.isConnected();
-      if (!connected) {
-        alert("Freighter Wallet tidak ditemukan! Silakan pasang ekstensi dompet Freighter di browser Anda terlebih dahulu.");
+      // 1. Cek apakah objek window dan ekstensi Freighter tersedia secara global
+      if (typeof window === "undefined" || !window.freighterApi) {
+        alert("Freighter Wallet tidak terdeteksi! Silakan pasang/aktifkan ekstensi Freighter di browser komputer Anda.");
         setLoading(false);
         return;
       }
 
-      // 2. Memicu popup persetujuan akses publik wallet
-      const allowedPublicKey = await freighterSDK.requestAccess();
+      // 2. Cek apakah dompet terhubung/aktif
+      const isConnected = await window.freighterApi.isConnected();
+      if (!isConnected) {
+        alert("Freighter Wallet terpasang namun statusnya belum siap.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Paksa meminta izin akses alamat public key (Memicu popup persetujuan)
+      const allowedPublicKey = await window.freighterApi.requestAccess();
       
       if (allowedPublicKey) {
         setWalletAddress(allowedPublicKey);
@@ -40,7 +33,7 @@ export default function Home() {
 
     } catch (error) {
       console.error("Detail Error:", error);
-      alert("Gagal terhubung: Pengguna membatalkan koneksi atau dompet terkunci.");
+      alert("Gagal terhubung: Pastikan ekstensi Freighter Anda sudah dimasukkan password (unlocked).");
     }
     setLoading(false);
   }
@@ -69,11 +62,10 @@ export default function Home() {
               color: '#000',
               border: 'none',
               borderRadius: '6px',
-              boxShadow: '0 4px 15px rgba(0,230,118,0.3)',
-              transition: 'all 0.2s ease'
+              boxShadow: '0 4px 15px rgba(0,230,118,0.3)'
             }}
           >
-            {loading ? "Membuka Popup Freighter..." : "Connect Freighter Wallet"}
+            {loading ? "Membuka Jendela Dompet..." : "Connect Freighter Wallet"}
           </button>
         )}
       </div>
