@@ -1,48 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showCustomModal, setShowCustomModal] = useState(false);
-  const [isExtensionAvailable, setIsExtensionAvailable] = useState(false);
 
-  // Deteksi kehadiran objek Freighter secara berkala agar sinkron dengan browser
-  useEffect(() => {
-    const checkExtension = () => {
-      if (typeof window !== "undefined" && (window.freighterApi || window.stargazer || typeof window.StellarSdk !== 'undefined')) {
-        setIsExtensionAvailable(true);
-      }
-    };
-
-    checkExtension();
-    const interval = setInterval(checkExtension, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function connectViaFreighter() {
+  async function handleDirectConnect() {
     setLoading(true);
     try {
-      // Mengambil objek API secara dinamis langsung saat tombol diklik
-      const targetApi = typeof window !== "undefined" ? window.freighterApi : null;
+      // Mengambil objek API langsung secara paksa dari memori browser
+      const freighter = typeof window !== "undefined" ? window.freighterApi : null;
 
-      if (!targetApi) {
-        alert("Freighter Wallet belum siap disuntikkan oleh browser. Silakan klik ikon dompet Anda di pojok kanan atas sekali, lalu klik ulang tombol ini.");
+      if (!freighter) {
+        alert("Freighter tidak merespons. Pastikan dompet Anda menampilkan halaman saldo (bukan halaman settings/network), lalu refresh halaman web ini.");
         setLoading(false);
         return;
       }
 
-      // Memaksa permintaan akses (Memicu pop-up persetujuan dari ekstensi)
-      const allowedPublicKey = await targetApi.requestAccess();
-      
-      if (allowedPublicKey) {
-        setWalletAddress(allowedPublicKey);
-        setShowCustomModal(false);
-      } else {
-        alert("Koneksi dompet dibatalkan atau ditolak.");
+      // Cek apakah ekstensi aktif
+      const active = await freighter.isConnected();
+      if (!active) {
+        alert("Dompet terdeteksi tetapi terkunci. Silakan masukkan password dompet Anda terlebih dahulu.");
+        setLoading(false);
+        return;
       }
+
+      // Ambil public key secara langsung (Memicu pop-up persetujuan resmi)
+      const publicKey = await freighter.requestAccess();
+      if (publicKey) {
+        setWalletAddress(publicKey);
+      } else {
+        alert("Koneksi dompet ditolak.");
+      }
+
     } catch (error) {
-      console.error("Detail Error:", error);
-      alert("Gagal terhubung: Pastikan dompet sudah dibuka kunci.");
+      console.error(error);
+      alert("Terjadi kesalahan sistem saat membaca ekstensi dompet.");
     }
     setLoading(false);
   }
@@ -57,12 +49,12 @@ export default function Home() {
       <div style={{ margin: '40px 0' }}>
         {walletAddress ? (
           <div style={{ padding: '20px 30px', backgroundColor: '#1e1e1e', border: '1px solid #00e676', borderRadius: '12px', display: 'inline-block' }}>
-            <p style={{ margin: '0 0 8px 0', color: '#00e676', fontWeight: 'bold' }}>✓ Dompet Terhubung</p>
-            <small style={{ fontFamily: 'monospace', fontSize: '15px', color: '#fff' }}>{walletAddress}</small>
+            <p style={{ margin: '0 0 8px 0', color: '#00e676', fontWeight: 'bold' }}>✓ Dompet Sukses Terhubung</p>
+            <small style={{ fontFamily: 'monospace', fontSize: '15px', color: '#fff', wordBreak: 'break-all' }}>{walletAddress}</small>
           </div>
         ) : (
           <button 
-            onClick={() => setShowCustomModal(true)}
+            onClick={handleDirectConnect}
             disabled={loading}
             style={{ 
               padding: '16px 32px', 
@@ -76,34 +68,10 @@ export default function Home() {
               boxShadow: '0 6px 20px rgba(0,230,118,0.3)'
             }}
           >
-            {loading ? "Memproses..." : "Connect Wallet"}
+            {loading ? "Menghubungkan Langsung..." : "Connect Freighter Wallet"}
           </button>
         )}
       </div>
-
-      {/* JENDELA POPUP PILIHAN DOMPET */}
-      {showCustomModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ backgroundColor: '#1e1e1e', padding: '30px', borderRadius: '12px', border: '1px solid #333', width: '320px', textAlign: 'center' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Pilih Dompet Stellar</h3>
-            
-            <button 
-              onClick={connectViaFreighter}
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', backgroundColor: '#333', color: '#fff', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <span>🛸 Freighter Wallet</span>
-              <span style={{ fontSize: '10px', color: '#00e676', backgroundColor: '#111', padding: '2px 6px', borderRadius: '4px' }}>ONLINE</span>
-            </button>
-
-            <button 
-              onClick={() => setShowCustomModal(false)}
-              style={{ backgroundColor: 'transparent', color: '#aaa', border: 'none', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}
-            >
-              Kembali
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
