@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isConnected, getPublicKey } from "@stellar/freighter-api";
+import { isConnected, requestAccess, getPublicKey } from "@stellar/freighter-api";
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState(null);
@@ -8,22 +8,27 @@ export default function Home() {
   async function handleConnect() {
     setLoading(true);
     try {
-      // 1. Cek apakah ekstensi Freighter sudah terinstall di browser
+      // 1. Cek instalasi ekstensi
       const connected = await isConnected();
-      
       if (!connected) {
-        alert("Freighter Wallet tidak ditemukan! Silakan install ekstensi dompet Freighter di browser Anda terlebih dahulu.");
+        alert("Freighter Wallet tidak ditemukan! Silakan pasang ekstensi dompet terlebih dahulu.");
         setLoading(false);
         return;
       }
 
-      // 2. Memicu popup Freighter untuk mengambil alamat public key user
-      const publicKey = await getPublicKey();
-      setWalletAddress(publicKey);
+      // 2. PAKSA MEMINTA IZIN AKSES (Ini akan memunculkan popup persetujuan)
+      const allowedPublicKey = await requestAccess();
       
+      if (allowedPublicKey) {
+        setWalletAddress(allowedPublicKey);
+      } else {
+        // Jika requestAccess mengembalikan string kosong/null karena di-cancel user
+        alert("Akses ke dompet ditolak oleh pengguna.");
+      }
+
     } catch (error) {
-      console.error("Gagal terhubung ke wallet:", error);
-      alert("Pengguna membatalkan koneksi atau terjadi kesalahan.");
+      console.error("Detail Error:", error);
+      alert("Terjadi kesalahan sistem saat menghubungkan dompet.");
     }
     setLoading(false);
   }
@@ -35,9 +40,9 @@ export default function Home() {
       
       <div style={{ margin: '30px 0' }}>
         {walletAddress ? (
-          <div style={{ padding: '10px', backgroundColor: '#333', borderRadius: '5px', display: 'inline-block' }}>
-            <p style={{ margin: 0, color: '#00e676' }}>✓ Terhubung</p>
-            <small style={{ fontFamily: 'monospace' }}>Address: {walletAddress}</small>
+          <div style={{ padding: '15px', backgroundColor: '#333', borderRadius: '5px', display: 'inline-block' }}>
+            <p style={{ margin: '0 0 5px 0', color: '#00e676', fontWeight: 'bold' }}>✓ Terhubung</p>
+            <small style={{ fontFamily: 'monospace', fontSize: '14px', color: '#ccc' }}>Address: {walletAddress}</small>
           </div>
         ) : (
           <button 
